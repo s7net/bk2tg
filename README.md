@@ -1,10 +1,10 @@
-# Telegram Docker Volume Backup System
+# Telegram Backup System
 
-A simple and efficient backup system for Docker volumes that automatically sends backups to Telegram.
+A simple and efficient backup system that automatically sends your files and folders to Telegram.
 
 ## Features
 
-- 🔄 Automated Docker volume backups
+- 🔄 Automated file and folder backups
 - 📱 Telegram integration with thread support
 - ⏱️ Configurable backup intervals
 - 🔒 Secure file handling
@@ -13,7 +13,7 @@ A simple and efficient backup system for Docker volumes that automatically sends
 
 ## Prerequisites
 
-- Linux server with Docker installed
+- Linux server
 - Telegram Bot Token (get from [@BotFather](https://t.me/BotFather))
 - Telegram Chat ID (group or channel)
 - Basic knowledge of Linux commands
@@ -43,6 +43,7 @@ chmod +x setup_backup.sh
    - Backup ID
    - Message Thread ID
    - Backup interval
+   - Backup folder path
 
 ## Configuration Details
 
@@ -71,6 +72,12 @@ chmod +x setup_backup.sh
 - Minimum: `1` minute
 - Recommended: `10` to `60` minutes
 
+### Backup Path
+- Full path to the folder you want to backup
+- Example: `/home/user/documents`
+- Must be an existing directory
+- Will backup all contents of the specified folder
+
 ## Backup Process
 
 1. **Preparation**
@@ -78,7 +85,7 @@ chmod +x setup_backup.sh
    - Cleans up old backup files
 
 2. **Backup Creation**
-   - Copies Docker volumes
+   - Copies files from specified path
    - Creates zip archive
    - Handles permissions properly
 
@@ -97,7 +104,7 @@ chmod +x setup_backup.sh
 /root/
 ├── setup_backup.sh    # Setup script
 ├── backup.sh         # Backup script (created by setup)
-└── *_session1_backuper.zip  # Backup files
+└── *_backup.zip      # Backup files
 ```
 
 ## Cron Job
@@ -119,6 +126,7 @@ The setup script automatically creates a cron job:
 1. **Permission Issues**
    - Ensure script is executable: `chmod +x setup_backup.sh`
    - Run as root or with sudo
+   - Check folder permissions
 
 2. **Telegram Issues**
    - Verify bot token is correct
@@ -126,8 +134,8 @@ The setup script automatically creates a cron job:
    - Ensure bot has permission to send messages
 
 3. **Backup Issues**
-   - Check Docker is running
-   - Verify volumes exist
+   - Check if backup path exists
+   - Verify folder permissions
    - Check disk space
 
 ## Security Notes
@@ -136,6 +144,7 @@ The setup script automatically creates a cron job:
 - Don't share your backup script
 - Regularly update your bot token
 - Monitor backup success
+- Be careful with sensitive data in backups
 
 ## Support
 
