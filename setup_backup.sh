@@ -100,19 +100,39 @@ copy_files() {
     sudo cp -r "$src"/* "$dest/" 2>/dev/null || true
 }
 
+# Function to check if a file is readable
+is_readable() {
+    local file="$1"
+    [ -r "$file" ] || sudo -n test -r "$file" 2>/dev/null
+}
+
 # Copy files from backup path
 echo "Copying files from $BACKUP_PATH..."
 if [ -d "$BACKUP_PATH" ]; then
-    copy_files "$BACKUP_PATH" "$TEMP_DIR"
+    # Create a list of files to backup
+    find "$BACKUP_PATH" -type f -not -path "*/backingFsBlockDev/*" | while read -r file; do
+        if is_readable "$file"; then
+            rel_path="${file#$BACKUP_PATH/}"
+            target_dir="$TEMP_DIR/$(dirname "$rel_path")"
+            mkdir -p "$target_dir"
+            sudo cp "$file" "$target_dir/" 2>/dev/null || true
+        fi
+    done
 else
     echo "Error: Backup path does not exist: $BACKUP_PATH"
+    exit 1
+fi
+
+# Check if we have any files to backup
+if [ -z "$(ls -A "$TEMP_DIR")" ]; then
+    echo "Error: No readable files found in backup path"
     exit 1
 fi
 
 # Compress files
 echo "Creating backup archive..."
 cd "$TEMP_DIR"
-if ! zip -9 -r "$backup_name" .; then
+if ! zip -9 -r "$backup_name" . -x "*/backingFsBlockDev/*" "*/\.*" 2>/dev/null; then
     message="Failed to compress files. Please check the server."
     echo "$message"
     exit 1
