@@ -9,12 +9,50 @@ NC='\033[0m'
 echo -e "${YELLOW}📦 Telegram Backup Setup Script${NC}"
 echo "This script will set up automated backups for your Docker volumes."
 
+# Check and install dependencies
+echo -e "\n${YELLOW}Checking dependencies...${NC}"
+dependencies=("zip" "curl" "jq" "sudo")
+missing_deps=()
+
+for dep in "${dependencies[@]}"; do
+    if ! command -v "$dep" &> /dev/null; then
+        missing_deps+=("$dep")
+    fi
+done
+
+if [ ${#missing_deps[@]} -ne 0 ]; then
+    echo -e "${YELLOW}Installing missing dependencies: ${missing_deps[*]}${NC}"
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y "${missing_deps[@]}"
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y "${missing_deps[@]}"
+    elif command -v dnf &> /dev/null; then
+        sudo dnf install -y "${missing_deps[@]}"
+    else
+        echo -e "${RED}Error: Could not install dependencies. Please install them manually: ${missing_deps[*]}${NC}"
+        exit 1
+    fi
+fi
+
 # Get user input
 read -p "Enter your Telegram Bot Token: " BOT_TOKEN
 read -p "Enter your Chat ID: " CHAT_ID
 read -p "Enter your Backup ID (numeric): " BACKUP_ID
 read -p "Enter Message Thread ID (use -1 for no thread): " MESSAGE_THREAD_ID
 read -p "Enter backup interval in minutes (e.g., 10): " BACKUP_INTERVAL
+
+# Ask for backup path
+echo -e "\n${YELLOW}Backup Path Configuration${NC}"
+echo "Enter the path you want to backup (default: /var/lib/docker/volumes):"
+read -p "> " BACKUP_PATH
+BACKUP_PATH=${BACKUP_PATH:-"/var/lib/docker/volumes"}
+
+# Validate backup path
+if [ ! -d "$BACKUP_PATH" ]; then
+    echo -e "${RED}Error: Backup path does not exist: $BACKUP_PATH${NC}"
+    exit 1
+fi
 
 # Validate inputs
 if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ] || [ -z "$BACKUP_ID" ] || [ -z "$MESSAGE_THREAD_ID" ] || [ -z "$BACKUP_INTERVAL" ]; then
@@ -33,6 +71,7 @@ BOT_TOKEN="__BOT_TOKEN__"
 CHAT_ID="__CHAT_ID__"
 BACKUP_ID="__BACKUP_ID__"  # Unique identifier for this backup
 MESSAGE_THREAD_ID="__MESSAGE_THREAD_ID__"  # -1 for no thread, or specific thread ID
+BACKUP_PATH="__BACKUP_PATH__"  # Path to backup
 
 # Variables
 ip=$(hostname -I | awk '{print $1}')
@@ -62,21 +101,26 @@ copy_files() {
     sudo cp -r "$src"/* "$dest/" 2>/dev/null || true
 }
 
-# Copy Docker volumes to temporary directory
-echo "Copying Docker volumes..."
-for volume in /var/lib/docker/volumes/*; do
-    if [ -d "$volume" ] && [ "$(basename "$volume")" != "backingFsBlockDev" ]; then
-        volume_name=$(basename "$volume")
-        echo "Copying volume: $volume_name"
-        copy_files "$volume" "$TEMP_DIR/$volume_name"
-    fi
-done
+# Copy files from backup path
+echo "Copying files from $BACKUP_PATH..."
+if [ -d "$BACKUP_PATH" ]; then
+    for item in "$BACKUP_PATH"/*; do
+        if [ -d "$item" ] && [ "$(basename "$item")" != "backingFsBlockDev" ]; then
+            item_name=$(basename "$item")
+            echo "Copying: $item_name"
+            copy_files "$item" "$TEMP_DIR/$item_name"
+        fi
+    done
+else
+    echo "Error: Backup path does not exist: $BACKUP_PATH"
+    exit 1
+fi
 
 # Compress files
 echo "Creating backup archive..."
 cd "$TEMP_DIR"
 if ! zip -9 -r "$backup_name" .; then
-    message="Failed to compress session1 files. Please check the server."
+    message="Failed to compress files. Please check the server."
     echo "$message"
     exit 1
 fi
@@ -126,6 +170,7 @@ sed -i "s/__BOT_TOKEN__/$BOT_TOKEN/" backup.sh
 sed -i "s/__CHAT_ID__/$CHAT_ID/" backup.sh
 sed -i "s/__BACKUP_ID__/$BACKUP_ID/" backup.sh
 sed -i "s/__MESSAGE_THREAD_ID__/$MESSAGE_THREAD_ID/" backup.sh
+sed -i "s|__BACKUP_PATH__|$BACKUP_PATH|" backup.sh
 
 # Make the script executable
 chmod +x backup.sh
@@ -143,6 +188,7 @@ echo -e "\n${YELLOW}Running first backup...${NC}"
 
 echo -e "\n${GREEN}[SUCCESS] Backup system setup complete!${NC}"
 echo -e "${GREEN}[INFO] Backup script location: $(pwd)/backup.sh${NC}"
+echo -e "${GREEN}[INFO] Backup path: $BACKUP_PATH${NC}"
 echo -e "${GREEN}[INFO] Cron job: Every $BACKUP_INTERVAL minutes${NC}"
 echo -e "${GREEN}[SUCCESS] First backup created and sent.${NC}"
 echo -e "${GREEN}[SUCCESS] Thank you for using the backup script. Enjoy automated backups!${NC}" 
