@@ -7,7 +7,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${YELLOW}📦 Telegram Backup Setup Script${NC}"
-echo "This script will set up automated backups for your Docker volumes."
+echo "This script will set up automated backups for your files and folders."
 
 # Check and install dependencies
 echo -e "\n${YELLOW}Checking dependencies...${NC}"
@@ -44,9 +44,8 @@ read -p "Enter backup interval in minutes (e.g., 10): " BACKUP_INTERVAL
 
 # Ask for backup path
 echo -e "\n${YELLOW}Backup Path Configuration${NC}"
-echo "Enter the path you want to backup (default: /var/lib/docker/volumes):"
+echo "Enter the full path of the folder you want to backup:"
 read -p "> " BACKUP_PATH
-BACKUP_PATH=${BACKUP_PATH:-"/var/lib/docker/volumes"}
 
 # Validate backup path
 if [ ! -d "$BACKUP_PATH" ]; then
@@ -79,11 +78,11 @@ timestamp=$(TZ='Asia/Tehran' date +%m%d-%H%M)
 CAPTION="
 📦 <b>From </b><code>${ip}</code>
 🆔 <b>Backup ID:</b> <code>${BACKUP_ID}</code>"
-backup_name="${BACKUP_ID}_${timestamp}_session1_backuper.zip"
-base_name="${BACKUP_ID}_${timestamp}_session1_backuper."
+backup_name="${BACKUP_ID}_${timestamp}_backup.zip"
+base_name="${BACKUP_ID}_${timestamp}_backup."
 
-# Clean up old backup files (only specific backup files)
-rm -rf *"_session1_backuper."* 2>/dev/null || true
+# Clean up old backup files
+rm -rf *"_backup."* 2>/dev/null || true
 
 # Create a temporary directory for the backup
 TEMP_DIR=$(mktemp -d)
@@ -104,13 +103,7 @@ copy_files() {
 # Copy files from backup path
 echo "Copying files from $BACKUP_PATH..."
 if [ -d "$BACKUP_PATH" ]; then
-    for item in "$BACKUP_PATH"/*; do
-        if [ -d "$item" ] && [ "$(basename "$item")" != "backingFsBlockDev" ]; then
-            item_name=$(basename "$item")
-            echo "Copying: $item_name"
-            copy_files "$item" "$TEMP_DIR/$item_name"
-        fi
-    done
+    copy_files "$BACKUP_PATH" "$TEMP_DIR"
 else
     echo "Error: Backup path does not exist: $BACKUP_PATH"
     exit 1
@@ -162,7 +155,7 @@ else
 fi
 
 # Cleanup
-rm -rf *"_session1_backuper."* 2>/dev/null || true
+rm -rf *"_backup."* 2>/dev/null || true
 EOL
 
 # Replace placeholders with actual values
