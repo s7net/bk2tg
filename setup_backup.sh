@@ -109,8 +109,8 @@ is_readable() {
 # Copy files from backup path
 echo "Copying files from $BACKUP_PATH..."
 if [ -d "$BACKUP_PATH" ]; then
-    # Create a list of files to backup
-    find "$BACKUP_PATH" -type f -not -path "*/backingFsBlockDev/*" | while read -r file; do
+    # Create a list of files to backup, excluding backingFsBlockDev
+    find "$BACKUP_PATH" -type f -not -path "*/backingFsBlockDev/*" -not -path "*/\.*" | while read -r file; do
         if is_readable "$file"; then
             rel_path="${file#$BACKUP_PATH/}"
             target_dir="$TEMP_DIR/$(dirname "$rel_path")"
@@ -132,7 +132,12 @@ fi
 # Compress files
 echo "Creating backup archive..."
 cd "$TEMP_DIR"
-if ! zip -9 -r "$backup_name" . -x "*/backingFsBlockDev/*" "*/\.*" 2>/dev/null; then
+
+# Create a list of files to zip
+find . -type f > files_to_zip.txt
+
+# Create zip file
+if ! zip -9 -r "$backup_name" -@ < files_to_zip.txt 2>/dev/null; then
     message="Failed to compress files. Please check the server."
     echo "$message"
     exit 1
